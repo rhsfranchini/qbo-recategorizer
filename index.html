@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QBO Recategorizer — RedHammer</title>
+<style>
+  :root{
+    --rh-red:#802629; --rh-dark:#333333; --rh-pink:#F2DCDC; --rh-pink2:#fbeeee;
+    --line:#e2e2e2; --ok:#1e7d4f; --err:#a3261b; --muted:#6b6b6b;
+  }
+  *{box-sizing:border-box}
+  body{font-family:Arial,Helvetica,sans-serif;margin:0;color:var(--rh-dark);background:#f6f6f7}
+  header{background:var(--rh-red);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;font-weight:bold;letter-spacing:.3px}
+  header .sub{font-size:12px;opacity:.85}
+  header select{margin-left:auto;padding:6px 8px;border-radius:4px;border:none;font-size:13px;min-width:240px}
+  .wrap{padding:16px 18px;max-width:1500px;margin:0 auto}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+  .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 14px;align-items:end}
+  label{font-size:12px;font-weight:bold;color:var(--rh-dark);display:block;margin-bottom:3px}
+  input,select,button{font-family:inherit;font-size:13px}
+  .filters input,.filters select{width:100%;padding:6px 7px;border:1px solid #ccc;border-radius:4px;background:#fff}
+  .types{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;font-weight:normal}
+  .types label{font-weight:normal;display:flex;align-items:center;gap:4px;margin:0;cursor:pointer}
+  button{cursor:pointer;border:none;border-radius:5px;padding:8px 14px;font-weight:bold}
+  .btn-primary{background:var(--rh-red);color:#fff}
+  .btn-primary:hover{background:#6a1f22}
+  .btn-ghost{background:#fff;color:var(--rh-red);border:1px solid var(--rh-red)}
+  .btn-ghost:hover{background:var(--rh-pink2)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .actionbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;border-top:2px solid var(--rh-pink);padding-top:12px;margin-top:12px}
+  .actionbar .grow{flex:1;min-width:220px}
+  .count{font-size:13px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;background:var(--rh-pink);color:var(--rh-dark);padding:7px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0}
+  td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr.txnhead td{background:#faf3f3;font-weight:bold;border-top:2px solid var(--rh-pink)}
+  tr.line:hover{background:#fcfafa}
+  .badge{display:inline-block;font-size:10px;font-weight:bold;padding:2px 7px;border-radius:10px;color:#fff;text-transform:uppercase;letter-spacing:.3px}
+  .b-Check{background:#2f6f9f}.b-Expense{background:#7a4fa3}.b-Bill{background:#b5772b}.b-Invoice{background:#1e7d4f}
+  .kind{font-size:10px;color:var(--muted);text-transform:uppercase}
+  .amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .muted{color:var(--muted)}
+  .right{text-align:right}
+  .center{text-align:center}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:18px}
+  .modal{background:#fff;border-radius:10px;max-width:1100px;width:100%;max-height:90vh;overflow:auto;padding:18px 20px}
+  .modal h2{margin:0 0 4px;color:var(--rh-red)}
+  .pvtxn{border:1px solid var(--line);border-radius:6px;margin:12px 0;overflow:hidden}
+  .pvtxn .h{background:#faf3f3;padding:8px 10px;font-weight:bold;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .chg{background:var(--rh-pink)!important}
+  .arrow{color:var(--rh-red);font-weight:bold}
+  .pill{font-size:11px;padding:1px 6px;border-radius:8px;background:#eee;color:#555}
+  .pill.ok{background:#dff3e8;color:var(--ok)}
+  .pill.err{background:#f7dedb;color:var(--err)}
+  .login{max-width:360px;margin:12vh auto;text-align:center}
+  .login input{width:100%;padding:10px;font-size:15px;border:1px solid #ccc;border-radius:6px;margin:10px 0}
+  .err-text{color:var(--err);font-size:13px;min-height:18px}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--rh-dark);color:#fff;padding:12px 16px;border-radius:8px;z-index:60;max-width:380px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .scroll{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:6px}
+  .tabbar{display:flex;gap:8px;margin-bottom:10px}
+  .tabbar button{background:#eee;color:var(--rh-dark)}
+  .tabbar button.active{background:var(--rh-red);color:#fff}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+var API="https://iatjnhweyffegnsskbwj.supabase.co/functions/v1/qbo-recat/api/";
+var KEY="";          // app password (kept in memory + sessionStorage)
+var realms=[];
+var realm="";
+var companyName="";
+var ref={accounts:[],items:[],customers:[],vendors:[]};
+var rows=[];
+var selected={};     // key -> row
+var target={kind:"account",id:"",name:""};
+
+function el(tag,props){
+  var e=document.createElement(tag);
+  if(props){for(var k in props){
+    if(k==="class")e.className=props[k];
+    else if(k==="text")e.textContent=props[k];
+    else if(k==="html")e.innerHTML=props[k];
+    else if(k.slice(0,2)==="on")e[k.toLowerCase()]=props[k];
+    else if(props[k]!==null&&props[k]!==undefined)e.setAttribute(k,props[k]);
+  }}
+  for(var i=2;i<arguments.length;i++){
+    var c=arguments[i];
+    if(c===null||c===undefined)continue;
+    if(typeof c==="string")e.appendChild(document.createTextNode(c));
+    else e.appendChild(c);
+  }
+  return e;
+}
+function money(n){var x=Number(n||0);return "$"+x.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+function rowKey(r){return r.txnType+"|"+r.txnId+"|"+r.lineId;}
+
+function api(path,method,body){
+  var opts={method:method||"GET",headers:{"x-app-key":KEY}};
+  if(body){opts.headers["Content-Type"]="application/json";opts.body=JSON.stringify(body);}
+  return fetch(API+path,opts).then(function(r){
+    return r.json().then(function(j){
+      if(!r.ok)throw new Error(j.error||("HTTP "+r.status));
+      return j;
+    });
+  });
+}
+function toast(msg,ms){
+  var t=el("div",{class:"toast",html:msg});
+  document.body.appendChild(t);
+  setTimeout(function(){t.remove();},ms||4000);
+}
+
+/* ---------- LOGIN ---------- */
+function renderLogin(msg){
+  var app=document.getElementById("app");
+  app.innerHTML="";
+  var pw=el("input",{type:"password",placeholder:"App password",onkeydown:function(e){if(e.key==="Enter")go();}});
+  var errd=el("div",{class:"err-text",text:msg||""});
+  function go(){
+    errd.textContent="";
+    fetch(API+"login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw.value})})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        if(j.ok){KEY=pw.value;sessionStorage.setItem("rhqbo_key",KEY);boot();}
+        else{errd.textContent="Incorrect password.";}
+      }).catch(function(){errd.textContent="Login failed.";});
+  }
+  var box=el("div",{class:"card login"},
+    el("h1",{text:"QBO Recategorizer",style:"color:var(--rh-red);margin-bottom:4px"}),
+    el("div",{class:"hint",text:"RedHammer internal tool"}),
+    pw, errd,
+    el("button",{class:"btn-primary",onclick:go,style:"width:100%"},"Sign in")
+  );
+  app.appendChild(box);
+  pw.focus();
+}
+
+/* ---------- BOOT ---------- */
+function boot(){
+  var app=document.getElementById("app");
+  app.innerHTML="";
+  app.appendChild(el("div",{class:"wrap"},el("div",{class:"card"},el("span",{class:"spinner"})," Loading companies…")));
+  api("realms").then(function(j){
+    realms=j.realms||[];
+    var pref=realms.filter(function(x){return (x.company_name||"").toLowerCase().indexOf("redhammer construction")>=0;});
+    realm=pref.length?pref[0].realm_id:(realms[0]?realms[0].realm_id:"");
+    setCompanyName();
+    renderMain();
+    loadRef();
+  }).catch(function(e){
+    if(String(e.message).indexOf("unauthorized")>=0){sessionStorage.removeItem("rhqbo_key");renderLogin("Session expired, sign in again.");}
+    else toast("Error: "+e.message);
+  });
+}
+function setCompanyName(){
+  var r=realms.filter(function(x){return x.realm_id===realm;})[0];
+  companyName=r?(r.company_name||realm):realm;
+}
+
+/* ---------- MAIN LAYOUT ---------- */
+function renderMain(){
+  var app=document.getElementById("app");
+  app.innerHTML="";
+  var companySel=el("select",{onchange:function(e){realm=e.target.value;setCompanyName();selected={};rows=[];loadRef();renderResults();}});
+  realms.forEach(function(x){
+    var o=el("option",{value:x.realm_id,text:(x.company_name||x.realm_id)});
+    if(x.realm_id===realm)o.selected=true;
+    companySel.appendChild(o);
+  });
+  var head=el("header",
+    el("h1",{text:"QBO Recategorizer"}),
+    el("div",{class:"sub",text:"Search → select lines → reassign category/item → preview → commit"}),
+    companySel
+  );
+  app.appendChild(head);
+
+  var wrap=el("div",{class:"wrap"});
+  wrap.appendChild(filterCard());
+  wrap.appendChild(el("div",{class:"card",id:"results"},el("div",{class:"muted",text:"Run a search to see transactions."})));
+  app.appendChild(wrap);
+  renderResults();
+}
+
+function typeChecks(){
+  var box=el("div",{class:"types"});
+  ["Expense","Check","Bill","Invoice"].forEach(function(t){
+    var cb=el("input",{type:"checkbox",value:t,checked:"checked","data-type":t});
+    box.appendChild(el("label",{},cb,t));
+  });
+  box.id="typebox";
+  return box;
+}
+function selOptions(selectEl,list,placeholder){
+  selectEl.appendChild(el("option",{value:"",text:placeholder}));
+  list.forEach(function(x){selectEl.appendChild(el("option",{value:x.id,text:x.name}));});
+}
+
+function filterCard(){
+  var today=new Date();
+  var d90=new Date(today.getTime()-90*86400000);
+  function iso(d){return d.toISOString().slice(0,10);}
+  var fromI=el("input",{type:"date",id:"dateFrom",value:iso(d90)});
+  var toI=el("input",{type:"date",id:"dateTo",value:iso(today)});
+  var vend=el("select",{id:"fVendor"});
+  var cust=el("select",{id:"fCustomer"});
+  var acct=el("select",{id:"fAccount"});
+  var item=el("select",{id:"fItem"});
+  var txt=el("input",{type:"text",id:"fText",placeholder:"memo / doc # / name"});
+
+  var grid=el("div",{class:"filters"},
+    el("div",{},el("label",{text:"Transaction types"}),typeChecks()),
+    el("div",{},el("label",{text:"Date from"}),fromI),
+    el("div",{},el("label",{text:"Date to"}),toI),
+    el("div",{},el("label",{text:"Vendor"}),vend),
+    el("div",{},el("label",{text:"Customer / Job"}),cust),
+    el("div",{},el("label",{text:"Category (account)"}),acct),
+    el("div",{},el("label",{text:"Item"}),item),
+    el("div",{},el("label",{text:"Text contains"}),txt)
+  );
+  var searchBtn=el("button",{class:"btn-primary",id:"searchBtn",onclick:doSearch},"Search");
+  var logBtn=el("button",{class:"btn-ghost",onclick:showLog},"View change log");
+  var bar=el("div",{class:"actionbar"},searchBtn,logBtn,el("div",{class:"hint grow",text:"Tip: filter by the wrong category, select the lines, then reassign them all at once."}));
+  return el("div",{class:"card"},grid,bar);
+}
+
+function refillFilterSelects(){
+  selOptions(document.getElementById("fVendor"),ref.vendors,"— any vendor —");
+  selOptions(document.getElementById("fCustomer"),ref.customers,"— any customer —");
+  selOptions(document.getElementById("fAccount"),ref.accounts,"— any category —");
+  selOptions(document.getElementById("fItem"),ref.items,"— any item —");
+}
+function loadRef(){
+  api("refdata?realm="+encodeURIComponent(realm)).then(function(j){
+    ref=j;
+    refillFilterSelects();
+    toast("Loaded "+ref.accounts.length+" accounts, "+ref.items.length+" items for "+companyName,3000);
+  }).catch(function(e){toast("Ref data error: "+e.message);});
+}
+
+function getTypes(){
+  var out=[];
+  document.querySelectorAll("#typebox input:checked").forEach(function(c){out.push(c.value);});
+  return out;
+}
+function doSearch(){
+  var btn=document.getElementById("searchBtn");
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Searching…';
+  selected={};
+  var body={
+    realm:realm,
+    types:getTypes(),
+    dateFrom:document.getElementById("dateFrom").value||null,
+    dateTo:document.getElementById("dateTo").value||null,
+    vendorId:document.getElementById("fVendor").value||null,
+    customerId:document.getElementById("fCustomer").value||null,
+    accountId:document.getElementById("fAccount").value||null,
+    itemId:document.getElementById("fItem").value||null,
+    text:document.getElementById("fText").value||null
+  };
+  api("search","POST",body).then(function(j){
+    rows=j.rows||[];
+    renderResults();
+  }).catch(function(e){toast("Search error: "+e.message);})
+  .then(function(){btn.disabled=false;btn.textContent="Search";});
+}
+
+/* ---------- RESULTS ---------- */
+function groupRows(){
+  var groups={};var order=[];
+  rows.forEach(function(r){
+    var k=r.txnType+"|"+r.txnId;
+    if(!groups[k]){groups[k]={info:r,lines:[]};order.push(k);}
+    groups[k].lines.push(r);
+  });
+  return order.map(function(k){return groups[k];});
+}
+function selCount(){var n=0;for(var k in selected)n++;return n;}
+
+function renderResults(){
+  var box=document.getElementById("results");
+  if(!box)return;
+  box.innerHTML="";
+  if(!rows.length){box.appendChild(el("div",{class:"muted",text:"No results yet. Set filters and click Search."}));return;}
+
+  box.appendChild(targetPanel());
+
+  var table=el("table");
+  var thead=el("tr",{class:"txnhead"},
+    el("th",{class:"center",html:'<input type="checkbox" id="selAll">'}),
+    el("th",{text:"Type"}),el("th",{text:"Date"}),el("th",{text:"Doc #"}),
+    el("th",{text:"Name"}),el("th",{text:"Current category / item"}),
+    el("th",{class:"right",text:"Amount"}),el("th",{text:"Line memo / job"})
+  );
+  table.appendChild(el("thead",{},thead));
+  var tb=el("tbody");
+  groupRows().forEach(function(g){
+    var info=g.info;
+    var hrow=el("tr",{class:"txnhead"},
+      el("td",{class:"center"}),
+      el("td",{},el("span",{class:"badge b-"+info.friendlyType,text:info.friendlyType})),
+      el("td",{text:info.txnDate}),
+      el("td",{text:info.docNumber||"—"}),
+      el("td",{text:info.entityName||"—"}),
+      el("td",{class:"muted",text:info.memo||""}),
+      el("td",{class:"amt",text:money(info.total)}),
+      el("td",{})
+    );
+    tb.appendChild(hrow);
+    g.lines.forEach(function(r){
+      var key=rowKey(r);
+      var cb=el("input",{type:"checkbox","data-key":key,onchange:function(e){
+        if(e.target.checked)selected[key]=r;else delete selected[key];
+        updateSelUi();
+      }});
+      if(selected[key])cb.checked=true;
+      var cur=r.kind==="account"
+        ? el("span",{},el("span",{class:"kind",text:"category "}),r.accountName||"(none)")
+        : el("span",{},el("span",{class:"kind",text:"item "}),r.itemName||"(none)");
+      var memo=[];
+      if(r.lineDesc)memo.push(r.lineDesc);
+      if(r.lineCustomerName)memo.push("• "+r.lineCustomerName);
+      tb.appendChild(el("tr",{class:"line"},
+        el("td",{class:"center"},cb),
+        el("td",{},el("span",{class:"kind",text:r.kind})),
+        el("td",{class:"muted",text:r.lineNum!=null?("ln "+r.lineNum):""}),
+        el("td",{}),
+        el("td",{}),
+        el("td",{},cur),
+        el("td",{class:"amt",text:money(r.amount)}),
+        el("td",{class:"muted",text:memo.join(" ")})
+      ));
+    });
+  });
+  table.appendChild(tb);
+  box.appendChild(el("div",{class:"scroll"},table));
+
+  document.getElementById("selAll").onchange=function(e){
+    var on=e.target.checked;
+    rows.forEach(function(r){var k=rowKey(r);if(on)selected[k]=r;else delete selected[k];});
+    document.querySelectorAll('input[data-key]').forEach(function(c){c.checked=on;});
+    updateSelUi();
+  };
+  updateSelUi();
+}
+
+function targetPanel(){
+  var kindSel=el("select",{id:"tgtKind",onchange:function(e){target.kind=e.target.value;fillTargetList();updateSelUi();}});
+  kindSel.appendChild(el("option",{value:"account",text:"Category (account)"}));
+  kindSel.appendChild(el("option",{value:"item",text:"Item"}));
+  var list=el("select",{id:"tgtList",onchange:function(e){
+    target.id=e.target.value;
+    target.name=e.target.options[e.target.selectedIndex].text;
+    updateSelUi();
+  }});
+  var previewBtn=el("button",{class:"btn-primary",id:"previewBtn",onclick:doPreview,disabled:"disabled"},"Preview changes");
+  var cnt=el("div",{class:"count",id:"selCount",text:"0 lines selected"});
+  var panel=el("div",{class:"actionbar"},
+    el("div",{},el("label",{text:"Reassign selected to"}),kindSel),
+    el("div",{class:"grow"},el("label",{text:"New value"}),list),
+    previewBtn, cnt
+  );
+  setTimeout(fillTargetList,0);
+  return panel;
+}
+function fillTargetList(){
+  var list=document.getElementById("tgtList");
+  if(!list)return;
+  list.innerHTML="";
+  list.appendChild(el("option",{value:"",text:"— choose —"}));
+  var src=target.kind==="account"?ref.accounts:ref.items;
+  src.forEach(function(x){list.appendChild(el("option",{value:x.id,text:x.name}));});
+  target.id="";target.name="";
+}
+function updateSelUi(){
+  var n=selCount();
+  var c=document.getElementById("selCount");
+  // count compatibility with chosen target kind
+  var bad=0;for(var k in selected){if(selected[k].kind!==target.kind)bad++;}
+  if(c){
+    c.textContent=n+" line"+(n===1?"":"s")+" selected"+(bad?(" — "+bad+" don't match "+target.kind):"");
+    c.style.color=bad?"var(--err)":"var(--muted)";
+  }
+  var pv=document.getElementById("previewBtn");
+  if(pv)pv.disabled=!(n>0&&target.id&&bad===0);
+}
+
+function selectedTxns(){
+  var g={};var order=[];
+  for(var k in selected){
+    var r=selected[k];var tk=r.txnType+"|"+r.txnId;
+    if(!g[tk]){g[tk]={txnType:r.txnType,txnId:r.txnId,changedLineIds:[]};order.push(tk);}
+    g[tk].changedLineIds.push(r.lineId);
+  }
+  return order.map(function(k){return g[k];});
+}
+
+/* ---------- PREVIEW ---------- */
+function doPreview(){
+  var txns=selectedTxns();
+  var btn=document.getElementById("previewBtn");
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Building preview…';
+  api("preview","POST",{realm:realm,targetKind:target.kind,targetId:target.id,targetName:target.name,txns:txns})
+    .then(function(j){showPreview(j.results);})
+    .catch(function(e){toast("Preview error: "+e.message);})
+    .then(function(){btn.disabled=false;btn.textContent="Preview changes";});
+}
+
+function lineLabel(line){
+  var dt=line.DetailType;
+  if(dt==="AccountBasedExpenseLineDetail")return "category: "+((line.AccountBasedExpenseLineDetail.AccountRef||{}).name||"(none)");
+  if(dt==="ItemBasedExpenseLineDetail")return "item: "+((line.ItemBasedExpenseLineDetail.ItemRef||{}).name||"(none)");
+  if(dt==="SalesItemLineDetail")return "item: "+((line.SalesItemLineDetail.ItemRef||{}).name||"(none)");
+  if(dt==="SubTotalLineDetail")return "(subtotal)";
+  if(dt==="DiscountLineDetail")return "(discount)";
+  return "("+(dt||"other")+")";
+}
+
+function showPreview(results){
+  var overlay=el("div",{class:"overlay"});
+  var modal=el("div",{class:"modal"});
+  var anyErr=results.some(function(r){return r.error;});
+  var okTxns=results.filter(function(r){return !r.error;});
+  modal.appendChild(el("h2",{text:"Preview — "+results.length+" transaction(s)"}));
+  modal.appendChild(el("div",{class:"hint",text:"Every line below will be written back. Highlighted lines change; all others are preserved exactly (including subtotals, links, projects and custom dimensions)."}));
+
+  results.forEach(function(r){
+    var box=el("div",{class:"pvtxn"});
+    var h=el("div",{class:"h"},
+      el("span",{class:"badge b-"+(r.friendlyType||r.txnType),text:r.friendlyType||r.txnType}),
+      el("span",{text:(r.docNumber?("#"+r.docNumber):("Id "+r.txnId))}),
+      el("span",{class:"muted",text:r.entityName||""}),
+      el("span",{class:"amt",text:money(r.total)})
+    );
+    if(r.error)h.appendChild(el("span",{class:"pill err",text:r.error}));
+    box.appendChild(h);
+    if(!r.error){
+      var t=el("table");
+      t.appendChild(el("thead",{},el("tr",{},
+        el("th",{text:"Ln"}),el("th",{text:"Amount"}),el("th",{text:"Before"}),el("th",{text:""}),el("th",{text:"After"})
+      )));
+      var tbody=el("tbody");
+      var changed={};(r.changedLineIds||[]).forEach(function(x){changed[String(x)]=true;});
+      r.before.forEach(function(bl,i){
+        var al=r.after[i];
+        var isChg=bl.Id!=null&&changed[String(bl.Id)];
+        tbody.appendChild(el("tr",{class:isChg?"chg":""},
+          el("td",{class:"muted",text:bl.Id!=null?bl.Id:""}),
+          el("td",{class:"amt",text:bl.Amount!=null?money(bl.Amount):""}),
+          el("td",{text:lineLabel(bl)}),
+          el("td",{class:"center"},isChg?el("span",{class:"arrow",text:"→"}):el("span",{class:"muted",text:"="})),
+          el("td",{text:lineLabel(al)})
+        ));
+      });
+      t.appendChild(tbody);
+      box.appendChild(t);
+    }
+    modal.appendChild(box);
+  });
+
+  var commitBtn=el("button",{class:"btn-primary",disabled:okTxns.length?null:"disabled",onclick:function(){
+    overlay.remove();doCommit(okTxns);
+  }},"Commit "+okTxns.length+" transaction(s) to QuickBooks");
+  var cancel=el("button",{class:"btn-ghost",onclick:function(){overlay.remove();}},"Cancel");
+  modal.appendChild(el("div",{class:"actionbar"},commitBtn,cancel,
+    anyErr?el("div",{class:"hint",text:"Transactions with errors are skipped."}):null));
+  overlay.appendChild(modal);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(overlay);
+}
+
+/* ---------- COMMIT ---------- */
+function doCommit(okResults){
+  var txns=okResults.map(function(r){
+    return {txnType:r.txnType,txnId:r.txnId,changedLineIds:r.changedLineIds};
+  });
+  toast('<span class="spinner"></span> Writing '+txns.length+" transaction(s)…",60000);
+  api("commit","POST",{realm:realm,companyName:companyName,targetKind:target.kind,targetId:target.id,targetName:target.name,txns:txns})
+    .then(function(j){
+      document.querySelectorAll(".toast").forEach(function(t){t.remove();});
+      var ok=j.results.filter(function(r){return r.result==="success";}).length;
+      var bad=j.results.filter(function(r){return r.result!=="success";});
+      var msg="<b>"+ok+"</b> committed.";
+      if(bad.length){msg+=" <b style='color:#ffb4ac'>"+bad.length+" failed.</b><br>"+bad.map(function(b){return (b.docNumber||b.txnId)+": "+b.error;}).join("<br>");}
+      toast(msg,bad.length?12000:5000);
+      selected={};
+      doSearch(); // refresh to show new categories
+    }).catch(function(e){
+      document.querySelectorAll(".toast").forEach(function(t){t.remove();});
+      toast("Commit error: "+e.message,10000);
+    });
+}
+
+/* ---------- LOG ---------- */
+function showLog(){
+  api("log?realm="+encodeURIComponent(realm)).then(function(j){
+    var overlay=el("div",{class:"overlay"});
+    var modal=el("div",{class:"modal"});
+    modal.appendChild(el("h2",{text:"Change log — "+companyName}));
+    var t=el("table");
+    t.appendChild(el("thead",{},el("tr",{},
+      el("th",{text:"When"}),el("th",{text:"Type"}),el("th",{text:"Doc/Id"}),
+      el("th",{text:"Set"}),el("th",{text:"New value"}),el("th",{text:"Lines"}),el("th",{text:"Result"})
+    )));
+    var tb=el("tbody");
+    (j.log||[]).forEach(function(r){
+      tb.appendChild(el("tr",{},
+        el("td",{class:"muted",text:(r.created_at||"").replace("T"," ").slice(0,16)}),
+        el("td",{text:r.txn_type}),
+        el("td",{text:r.doc_number||r.txn_id}),
+        el("td",{text:r.target_kind||""}),
+        el("td",{text:r.target_name||""}),
+        el("td",{class:"center",text:(r.changed_line_ids||[]).length}),
+        el("td",{},el("span",{class:"pill "+(r.result==="success"?"ok":"err"),text:r.result}))
+      ));
+    });
+    t.appendChild(tb);
+    modal.appendChild(el("div",{class:"scroll"},t));
+    modal.appendChild(el("div",{class:"actionbar"},el("button",{class:"btn-ghost",onclick:function(){overlay.remove();}},"Close")));
+    overlay.appendChild(modal);
+    overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+    document.body.appendChild(overlay);
+  }).catch(function(e){toast("Log error: "+e.message);});
+}
+
+/* ---------- START ---------- */
+(function(){
+  var saved=sessionStorage.getItem("rhqbo_key");
+  if(saved){KEY=saved;boot();}
+  else renderLogin();
+})();
+</script>
+</body>
+</html>
