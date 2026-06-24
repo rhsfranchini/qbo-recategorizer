@@ -398,6 +398,16 @@ function carryOver(from: Any, to: Any): Any {
   return to;
 }
 
+// QBO's expense form only renders a purchase line under "Item details" when the
+// item line carries Qty and UnitPrice; a bare ItemRef (Amount only) is shown as a
+// category line on the item's expense account instead. Backfill them so converted
+// lines look exactly like natively-booked item lines.
+function ensureItemQtyPrice(detail: Any, amount: Any): Any {
+  if (detail.Qty == null) detail.Qty = 1;
+  if (detail.UnitPrice == null) detail.UnitPrice = (Number(amount) || 0) / (Number(detail.Qty) || 1);
+  return detail;
+}
+
 function applyChange(
   txnObj: Any,
   changed: Set<string>,
@@ -429,15 +439,19 @@ function applyChange(
       } else if (targetKind === "item") {
         if (l.DetailType === "ItemBasedExpenseLineDetail" && l.ItemBasedExpenseLineDetail) {
           l.ItemBasedExpenseLineDetail.ItemRef = { value: targetId, name: targetName };
+          ensureItemQtyPrice(l.ItemBasedExpenseLineDetail, l.Amount);
         } else if (l.DetailType === "SalesItemLineDetail" && l.SalesItemLineDetail) {
           l.SalesItemLineDetail.ItemRef = { value: targetId, name: targetName };
           delete l.SalesItemLineDetail.ItemAccountRef; // let QBO derive the income account
         } else if (l.DetailType === "AccountBasedExpenseLineDetail" && l.AccountBasedExpenseLineDetail) {
           // The core purpose: convert a category (account) line to an item line.
-          // Amount stays on the Line, so QBO derives qty/rate from it.
-          const detail = carryOver(l.AccountBasedExpenseLineDetail, {
-            ItemRef: { value: targetId, name: targetName },
-          });
+          // QBO needs Qty + UnitPrice for its form to treat it as an item line.
+          const detail = ensureItemQtyPrice(
+            carryOver(l.AccountBasedExpenseLineDetail, {
+              ItemRef: { value: targetId, name: targetName },
+            }),
+            l.Amount,
+          );
           l.DetailType = "ItemBasedExpenseLineDetail";
           l.ItemBasedExpenseLineDetail = detail;
           delete l.AccountBasedExpenseLineDetail;
