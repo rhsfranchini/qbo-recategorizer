@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+// page.ts — the single-page web UI for the QBO Recategorizer, served as HTML.
+// Client JS deliberately avoids template literals so this whole file can live
+// inside one backtick string without escaping headaches.
+
+export const PAGE_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -546,4 +550,4 @@ function showLog(){
 })();
 </script>
 </body>
-</html>
+</html>`;
