@@ -300,6 +300,7 @@ function renderResults(){
     el("th",{class:"center",html:'<input type="checkbox" id="selAll">'}),
     el("th",{text:"Type"}),el("th",{text:"Date"}),el("th",{text:"Doc #"}),
     el("th",{text:"Name"}),el("th",{text:"Current category / item"}),
+    el("th",{class:"right",text:"Qty"}),el("th",{class:"right",text:"Rate"}),
     el("th",{class:"right",text:"Amount"}),el("th",{text:"Line memo / job"})
   );
   table.appendChild(el("thead",{},thead));
@@ -313,6 +314,7 @@ function renderResults(){
       el("td",{text:info.docNumber||"—"}),
       el("td",{text:info.entityName||"—"}),
       el("td",{class:"muted",text:info.memo||""}),
+      el("td",{}),el("td",{}),
       el("td",{class:"amt",text:money(info.total)}),
       el("td",{})
     );
@@ -337,6 +339,8 @@ function renderResults(){
         el("td",{}),
         el("td",{}),
         el("td",{},cur),
+        el("td",{class:"amt muted",text:r.kind==="item"&&r.qty!=null?String(r.qty):""}),
+        el("td",{class:"amt muted",text:r.kind==="item"&&r.rate!=null?money(r.rate):""}),
         el("td",{class:"amt",text:money(r.amount)}),
         el("td",{class:"muted",text:memo.join(" ")})
       ));

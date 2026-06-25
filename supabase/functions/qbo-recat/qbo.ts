@@ -279,6 +279,7 @@ function flatten(txn: Any, txnType: string): Any[] {
     let kind = "other";
     let accountId = "", accountName = "", itemId = "", itemName = "";
     let lineCustomerId = "", lineCustomerName = "";
+    let qty: Any = null, rate: Any = null;
     const dt = line.DetailType;
     if (dt === "AccountBasedExpenseLineDetail" && line.AccountBasedExpenseLineDetail) {
       const d = line.AccountBasedExpenseLineDetail;
@@ -294,11 +295,15 @@ function flatten(txn: Any, txnType: string): Any[] {
       itemName = d.ItemRef?.name || "";
       lineCustomerId = d.CustomerRef?.value || "";
       lineCustomerName = d.CustomerRef?.name || "";
+      qty = d.Qty ?? null;
+      rate = d.UnitPrice ?? null;
     } else if (dt === "SalesItemLineDetail" && line.SalesItemLineDetail) {
       const d = line.SalesItemLineDetail;
       kind = "item";
       itemId = d.ItemRef?.value || "";
       itemName = d.ItemRef?.name || "";
+      qty = d.Qty ?? null;
+      rate = d.UnitPrice ?? null;
     } else {
       continue; // subtotal/discount/group lines: not editable, but preserved on save
     }
@@ -312,6 +317,8 @@ function flatten(txn: Any, txnType: string): Any[] {
       itemId,
       itemName,
       amount: line.Amount ?? 0,
+      qty,
+      rate,
       lineDesc: line.Description || "",
       lineCustomerId,
       lineCustomerName,
