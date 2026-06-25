@@ -79,7 +79,7 @@ var companyName="";
 var ref={accounts:[],items:[],customers:[],vendors:[]};
 var rows=[];
 var selected={};     // key -> row
-var target={kind:"account",id:"",name:""};
+var target={kind:"account",id:"",name:"",customerId:"",customerName:""};
 
 function el(tag,props){
   var e=document.createElement(tag);
@@ -363,11 +363,18 @@ function targetPanel(){
     target.name=e.target.options[e.target.selectedIndex].text;
     updateSelUi();
   }});
+  var custSel=el("select",{id:"tgtCust",onchange:function(e){
+    target.customerId=e.target.value;
+    target.customerName=e.target.value?e.target.options[e.target.selectedIndex].text:"";
+  }});
+  custSel.appendChild(el("option",{value:"",text:"— keep customer —"}));
+  ref.customers.forEach(function(x){custSel.appendChild(el("option",{value:x.id,text:x.name}));});
   var previewBtn=el("button",{class:"btn-primary",id:"previewBtn",onclick:doPreview,disabled:"disabled"},"Preview changes");
   var cnt=el("div",{class:"count",id:"selCount",text:"0 lines selected"});
   var panel=el("div",{class:"actionbar"},
     el("div",{},el("label",{text:"Reassign selected to"}),kindSel),
     el("div",{class:"grow"},el("label",{text:"New value"}),list),
+    el("div",{},el("label",{text:"Customer / Job (optional)"}),custSel),
     previewBtn, cnt
   );
   setTimeout(fillTargetList,0);
@@ -419,7 +426,7 @@ function doPreview(){
   var txns=selectedTxns();
   var btn=document.getElementById("previewBtn");
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Building preview…';
-  api("preview","POST",{realm:realm,targetKind:target.kind,targetId:target.id,targetName:target.name,txns:txns})
+  api("preview","POST",{realm:realm,targetKind:target.kind,targetId:target.id,targetName:target.name,targetCustomerId:target.customerId,targetCustomerName:target.customerName,txns:txns})
     .then(function(j){showPreview(j.results);})
     .catch(function(e){toast("Preview error: "+e.message);})
     .then(function(){btn.disabled=false;btn.textContent="Preview changes";});
@@ -427,12 +434,16 @@ function doPreview(){
 
 function lineLabel(line){
   var dt=line.DetailType;
-  if(dt==="AccountBasedExpenseLineDetail")return "category: "+((line.AccountBasedExpenseLineDetail.AccountRef||{}).name||"(none)");
-  if(dt==="ItemBasedExpenseLineDetail")return "item: "+((line.ItemBasedExpenseLineDetail.ItemRef||{}).name||"(none)");
-  if(dt==="SalesItemLineDetail")return "item: "+((line.SalesItemLineDetail.ItemRef||{}).name||"(none)");
-  if(dt==="SubTotalLineDetail")return "(subtotal)";
-  if(dt==="DiscountLineDetail")return "(discount)";
-  return "("+(dt||"other")+")";
+  var s;
+  if(dt==="AccountBasedExpenseLineDetail")s="category: "+((line.AccountBasedExpenseLineDetail.AccountRef||{}).name||"(none)");
+  else if(dt==="ItemBasedExpenseLineDetail")s="item: "+((line.ItemBasedExpenseLineDetail.ItemRef||{}).name||"(none)");
+  else if(dt==="SalesItemLineDetail")s="item: "+((line.SalesItemLineDetail.ItemRef||{}).name||"(none)");
+  else if(dt==="SubTotalLineDetail")return "(subtotal)";
+  else if(dt==="DiscountLineDetail")return "(discount)";
+  else return "("+(dt||"other")+")";
+  var d=line[dt]||{};
+  if(d.CustomerRef&&d.CustomerRef.name)s+=" · "+d.CustomerRef.name;
+  return s;
 }
 
 function showPreview(results){
@@ -494,7 +505,7 @@ function doCommit(okResults){
     return {txnType:r.txnType,txnId:r.txnId,changedLineIds:r.changedLineIds};
   });
   toast('<span class="spinner"></span> Writing '+txns.length+" transaction(s)…",60000);
-  api("commit","POST",{realm:realm,companyName:companyName,targetKind:target.kind,targetId:target.id,targetName:target.name,txns:txns})
+  api("commit","POST",{realm:realm,companyName:companyName,targetKind:target.kind,targetId:target.id,targetName:target.name,targetCustomerId:target.customerId,targetCustomerName:target.customerName,txns:txns})
     .then(function(j){
       document.querySelectorAll(".toast").forEach(function(t){t.remove();});
       var ok=j.results.filter(function(r){return r.result==="success";}).length;
