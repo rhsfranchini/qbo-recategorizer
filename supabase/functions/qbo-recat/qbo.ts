@@ -279,6 +279,7 @@ function flatten(txn: Any, txnType: string): Any[] {
     let kind = "other";
     let accountId = "", accountName = "", itemId = "", itemName = "";
     let lineCustomerId = "", lineCustomerName = "";
+    let qty: Any = null, rate: Any = null;
     const dt = line.DetailType;
     if (dt === "AccountBasedExpenseLineDetail" && line.AccountBasedExpenseLineDetail) {
       const d = line.AccountBasedExpenseLineDetail;
@@ -294,11 +295,15 @@ function flatten(txn: Any, txnType: string): Any[] {
       itemName = d.ItemRef?.name || "";
       lineCustomerId = d.CustomerRef?.value || "";
       lineCustomerName = d.CustomerRef?.name || "";
+      qty = d.Qty ?? null;
+      rate = d.UnitPrice ?? null;
     } else if (dt === "SalesItemLineDetail" && line.SalesItemLineDetail) {
       const d = line.SalesItemLineDetail;
       kind = "item";
       itemId = d.ItemRef?.value || "";
       itemName = d.ItemRef?.name || "";
+      qty = d.Qty ?? null;
+      rate = d.UnitPrice ?? null;
     } else {
       continue; // subtotal/discount/group lines: not editable, but preserved on save
     }
@@ -312,6 +317,8 @@ function flatten(txn: Any, txnType: string): Any[] {
       itemId,
       itemName,
       amount: line.Amount ?? 0,
+      qty,
+      rate,
       lineDesc: line.Description || "",
       lineCustomerId,
       lineCustomerName,
@@ -398,6 +405,16 @@ function carryOver(from: Any, to: Any): Any {
   return to;
 }
 
+// QBO's expense form only renders a purchase line under "Item details" when the
+// item line carries Qty and UnitPrice; a bare ItemRef (Amount only) is shown as a
+// category line on the item's expense account instead. Backfill them so converted
+// lines look exactly like natively-booked item lines.
+function ensureItemQtyPrice(detail: Any, amount: Any): Any {
+  if (detail.Qty == null) detail.Qty = 1;
+  if (detail.UnitPrice == null) detail.UnitPrice = (Number(amount) || 0) / (Number(detail.Qty) || 1);
+  return detail;
+}
+
 function applyChange(
   txnObj: Any,
   changed: Set<string>,
@@ -429,15 +446,19 @@ function applyChange(
       } else if (targetKind === "item") {
         if (l.DetailType === "ItemBasedExpenseLineDetail" && l.ItemBasedExpenseLineDetail) {
           l.ItemBasedExpenseLineDetail.ItemRef = { value: targetId, name: targetName };
+          ensureItemQtyPrice(l.ItemBasedExpenseLineDetail, l.Amount);
         } else if (l.DetailType === "SalesItemLineDetail" && l.SalesItemLineDetail) {
           l.SalesItemLineDetail.ItemRef = { value: targetId, name: targetName };
           delete l.SalesItemLineDetail.ItemAccountRef; // let QBO derive the income account
         } else if (l.DetailType === "AccountBasedExpenseLineDetail" && l.AccountBasedExpenseLineDetail) {
           // The core purpose: convert a category (account) line to an item line.
-          // Amount stays on the Line, so QBO derives qty/rate from it.
-          const detail = carryOver(l.AccountBasedExpenseLineDetail, {
-            ItemRef: { value: targetId, name: targetName },
-          });
+          // QBO needs Qty + UnitPrice for its form to treat it as an item line.
+          const detail = ensureItemQtyPrice(
+            carryOver(l.AccountBasedExpenseLineDetail, {
+              ItemRef: { value: targetId, name: targetName },
+            }),
+            l.Amount,
+          );
           l.DetailType = "ItemBasedExpenseLineDetail";
           l.ItemBasedExpenseLineDetail = detail;
           delete l.AccountBasedExpenseLineDetail;
