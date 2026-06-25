@@ -157,6 +157,8 @@ Deno.serve(async (req: Request) => {
               targetKind: body.targetKind,
               targetId: body.targetId,
               targetName: body.targetName,
+              targetCustomerId: body.targetCustomerId,
+              targetCustomerName: body.targetCustomerName,
             }),
           );
         }
@@ -175,6 +177,8 @@ Deno.serve(async (req: Request) => {
               targetKind: body.targetKind,
               targetId: body.targetId,
               targetName: body.targetName,
+              targetCustomerId: body.targetCustomerId,
+              targetCustomerName: body.targetCustomerName,
             }),
           );
         }

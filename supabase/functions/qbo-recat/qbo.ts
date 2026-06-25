@@ -421,6 +421,8 @@ function applyChange(
   targetKind: string,
   targetId: string,
   targetName: string,
+  targetCustomerId?: string,
+  targetCustomerName?: string,
 ): Any[] {
   return (txnObj.Line || []).map((line: Any) => {
     if (line.Id != null && changed.has(String(line.Id))) {
@@ -466,6 +468,12 @@ function applyChange(
           throw new Error(`Line ${line.Id} is not an item line, so an item can't be set on it.`);
         }
       }
+      // Optionally stamp a Customer/Job onto the converted purchase/bill line so
+      // it is tagged for job costing, the way natively-booked item lines are.
+      if (targetCustomerId) {
+        const det = l.ItemBasedExpenseLineDetail || l.AccountBasedExpenseLineDetail;
+        if (det) det.CustomerRef = { value: targetCustomerId, name: targetCustomerName };
+      }
       return l;
     }
     return line; // untouched lines are preserved byte-for-byte
@@ -478,7 +486,7 @@ export async function previewTxn(realmId: string, req: Any): Promise<Any> {
   let after: Any[] = [];
   let error: string | null = null;
   try {
-    after = applyChange(obj, changed, req.targetKind, req.targetId, req.targetName);
+    after = applyChange(obj, changed, req.targetKind, req.targetId, req.targetName, req.targetCustomerId, req.targetCustomerName);
   } catch (e) {
     error = String((e as Error).message || e);
   }
@@ -523,7 +531,7 @@ export async function commitTxn(
   const changed = new Set<string>((req.changedLineIds || []).map(String));
   let after: Any[];
   try {
-    after = applyChange(obj, changed, req.targetKind, req.targetId, req.targetName);
+    after = applyChange(obj, changed, req.targetKind, req.targetId, req.targetName, req.targetCustomerId, req.targetCustomerName);
   } catch (e) {
     const msg = String((e as Error).message || e);
     await logEdit({
